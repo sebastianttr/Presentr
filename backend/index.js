@@ -1,9 +1,24 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 var express = require('express');
 var cors = require('cors');
+const WebSocket = require('ws');
+var events = require('events');
+const url = require('url');
+const querystring = require('querystring');
 
-var app = express()
+
+var app = express();
+var globalEventEmitter = new events.EventEmitter();
+
+const server = https.createServer({
+    cert: fs.readFileSync('ssl/certificate.crt'),
+    key: fs.readFileSync('ssl/privateKey.key')
+});
+
+const wss1 = new WebSocket.Server({ noServer: true });
+const wss2 = new WebSocket.Server({ noServer: true });
 
 app.use(cors());
 app.use(express.json());
@@ -11,60 +26,91 @@ app.use(express.urlencoded({
     extended: true
 }));
 
-
-var offers = [{
-        "offerID": 1,
-        "offer": { "offer": 22.45 }
-    },
-    {
-        "offerID": 2,
-        "offer": { "offer": 22.45 }
-    },
-    {
-        "offerID": 3,
-        "offer": { "offer": 22.45 }
-    },
-    {
-        "offerID": 4,
-        "offer": { "offer": 22.45 }
-    }
-];
+let message1;
 
 
+var offers = [];
 
+//add new Offer
 
-app.post("/addNewOffer", (req, res) => {
-    var offer = req.body.offer;
-    console.log(req.body)
+wss1.on('connection', function connection(ws, req) {
+    const ip = req.socket.remoteAddress;
+    const port = req.socket.remotePort;
+    console.log("Client connected with IP %s:%s" + ip, port);
+    let id = 0;
 
-    offers.push({
-        offerID: offers.length + 1,
-        offer: offer
+    ws.on('message', message => {
+        var offer = JSON.parse(message);
+        console.log(offer)
+
+        offers.push({
+            offerID: offers.length + 1,
+            offer: offer
+        });
+
+        id = offers[offers.length - 1].offerID;
+        globalEventEmitter.addListener("sendBackMaster" + String(id), msg => {
+            ws.send(message1)
+            offers.slice(id, id)
+            message1 = null;
+        })
+
+        console.log("New WebRTC Offer added with id " + JSON.stringify(offers[offers.length - 1].offerID));
+        ws.send(JSON.stringify({
+            status: "200",
+            offerID: offers[offers.length - 1].offerID
+        }));
     });
 
-    console.log("New WebRTC Offer added with id " + JSON.stringify(offers[offers.length - 1].offerID));
-    res.setHeader('Access-Control-Allow-Origin', "*");
-    res.send({
-        status: "200",
-        offerID: offers[offers.length - 1].offerID
+    ws.on('close', message => {
+        console.log("Connection to client with IP: %s:%s lost.", ip, port);
     });
-})
+});
 
-app.get("/acceptOffer", (req, res) => {
-    var offerID = req.query.offerID;
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    var offer = offers.find(offer => offer.offerID = offerID);
-    console.log("Requested new WebRTC Offer with id " + offer.offerID);
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.send({
+//accept Offer
+
+wss2.on('connection', function connection(ws, req) {
+    const ip = req.socket.remoteAddress;
+    const port = req.socket.remotePort;
+    let query = querystring.parse(url.parse(req.url).query);
+    console.log("Client connected with IP " + ip);
+
+    ws.on('message', message => {
+        message1 = message;
+        globalEventEmitter.emit("sendBackMaster" + String(query.id))
+    });
+
+    ws.on('close', message => {
+        console.log("Connection to client with IP: %s:%s lost.", ip, port);
+    });
+    var offer = offers.find(of => of.offerID == query.id);
+    console.log("Requested new WebRTC Offer with id " + query.id);
+    ws.send(JSON.stringify({
         offerID: offer.offerID,
         offer: offer.offer
-    });
-})
+    }));
+});
+
+server.on('upgrade', function upgrade(request, socket, head) {
+    const pathname = url.parse(request.url).pathname;
+
+    if (pathname === '/addNewOffer') {
+        wss1.handleUpgrade(request, socket, head, function done(ws) {
+            wss1.emit('connection', ws, request);
+        });
+    } else if (pathname === '/acceptOffer') {
+        wss2.handleUpgrade(request, socket, head, function done(ws) {
+            wss2.emit('connection', ws, request);
+        });
+    } else {
+        socket.destroy();
+    }
+});
 
 
 app.get("/getAllOffers", (req, res) => {
     res.send(offers);
 })
 
-app.listen(8085);
+app.listen(8085); //HTTP Server
+server.listen(8086); //WebSocket Server

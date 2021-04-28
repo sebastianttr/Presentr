@@ -5,6 +5,13 @@ let remoteVideo = document.getElementById("remote");
 const remoteStream = new MediaStream();
 remoteVideo.srcObject = remoteStream;
 
+let wsUriNewOffer = "wss://192.168.0.159:8086/addNewOffer";
+let wsUriAcceptOffer = "wss://192.168.0.159:8086/acceptOffer";
+var webSocketAccept;
+var websocketAdd;
+
+let offerRemoteOrLocal = null;
+
 var localStream, _fileChannel, chatEnabled, context, source,
     _chatChannel, sendFileDom = {},
     recFileDom = {},
@@ -24,7 +31,7 @@ enableChat();
 
 
 const stream = navigator.mediaDevices.getUserMedia({
-    audio: true,
+    audio: false,
     video: {
         width: {
             min: 1280
@@ -35,7 +42,6 @@ const stream = navigator.mediaDevices.getUserMedia({
     }
 }).then(stream => {
     localStream = stream;
-    micused.innerHTML = localStream.getAudioTracks()[0].label;
     pc.addStream(stream);
     localVideo.srcObject = stream;
 }).catch(errHandler);
@@ -60,35 +66,70 @@ pc.ondatachannel = function(e) {
     }
 };
 
-function sendOfferToServer(offer) {
-    var myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
 
-    var raw = JSON.stringify({
+function sendOfferToServer(offer) {
+    console.log("Sending to server!");
+    let raw = JSON.stringify({
         "offer": offer
     });
+    websocketAdd = new WebSocket(wsUriNewOffer);
+    websocketAdd.onopen = function() {
+        websocketAdd.send(raw); //Will work here!
+    }
+    websocketAdd.onmessage = (msg) => {
+        try {
+            if (JSON.parse(msg.data).type) {
+                console.log("It should work by now...")
+                var _remoteOffer = new RTCSessionDescription(JSON.parse(msg.data));
+                pc.setRemoteDescription(_remoteOffer).then(function() {
+                    if (_remoteOffer.type == "offer") {
+                        pc.createAnswer().then(function(description) {
+                            pc.setLocalDescription(description).then(function() {}).catch(errHandler);
+                        }).catch(errHandler);
+                    }
+                }).catch(errHandler);
 
-    var requestOptions = {
-        method: 'POST',
-        headers: myHeaders,
-        body: raw,
-        redirect: 'follow'
+            } else {
+
+                var localOfferVal = JSON.parse(msg.data).offerID;
+                localOffer.value = localOfferVal
+
+            }
+        } catch (e) {
+
+        }
+    }
+}
+
+function acceptOfferFromServer() {
+    webSocketAccept = new WebSocket(wsUriAcceptOffer + "?id=" + remoteOffer.value);
+    webSocketAccept.onmessage = (evt) => {
+        var _remoteOffer = new RTCSessionDescription(JSON.parse(evt.data).offer.offer);
+        //console.log('remoteOffer \n', _remoteOffer);
+        offerRemoteOrLocal = "remote";
+        pc.setRemoteDescription(_remoteOffer).then(function() {
+            console.log('setRemoteDescription ok');
+            if (_remoteOffer.type == "offer") {
+                pc.createAnswer().then(function(description) {
+                    //console.log('createAnswer 200 ok \n', description);
+                    pc.setLocalDescription(description).then(function() {}).catch(errHandler);
+                }).catch(errHandler);
+            }
+        }).catch(errHandler);
     };
-
-    fetch("http://localhost:8085/addNewOffer", requestOptions)
-        .then(response => response.text())
-        .then(result => {
-            localOffer.value = JSON.parse(result).offerID
-        })
-        .catch(error => console.log('error', error));
 }
 
 pc.onicecandidate = function(e) {
     var cand = e.candidate;
     if (!cand) {
         console.log('iceGatheringState complete', pc.localDescription.sdp);
-        //localOffer.value = JSON.stringify(pc.localDescription);
-        sendOfferToServer(pc.localDescription);
+        if (offerRemoteOrLocal == "local") {
+            //send offer to the server
+            sendOfferToServer(pc.localDescription);
+        } else if (offerRemoteOrLocal == "remote") {
+            console.log("Sending remote to server")
+            webSocketAccept.send(JSON.stringify(pc.localDescription))
+        }
     } else {
         console.log(cand.candidate);
     }
@@ -107,8 +148,11 @@ pc.onconnection = function(e) {
 
 remoteOfferGot.onclick = function() {
     var remoteOffer = document.getElementById("remoteOffer");
+    acceptOfferFromServer();
+    /*
     var _remoteOffer = new RTCSessionDescription(JSON.parse(remoteOffer.value));
     console.log('remoteOffer \n', _remoteOffer);
+    offerRemoteOrLocal = "remote";
     pc.setRemoteDescription(_remoteOffer).then(function() {
         console.log('setRemoteDescription ok');
         if (_remoteOffer.type == "offer") {
@@ -118,6 +162,7 @@ remoteOfferGot.onclick = function() {
             }).catch(errHandler);
         }
     }).catch(errHandler);
+    */
 }
 
 
@@ -129,6 +174,7 @@ localOfferSet.onclick = function() {
         chatChannel(_chatChannel);
         fileChannel(_fileChannel);
     }
+    offerRemoteOrLocal = "local";
     pc.createOffer().then(des => {
         console.log('createOffer ok ');
         pc.setLocalDescription(des).then(() => {
