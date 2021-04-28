@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="googlebot" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" type="text/css">
+    <link href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/ionicons@^4.0.0/dist/css/ionicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@^3.0.0/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/animate.css@^3.5.2/animate.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/quasar.min.css" rel="stylesheet" type="text/css">
+    <link rel="icon" href="https://icons-for-free.com/iconfiles/png/512/quasar-1324440220466918651.png" type="image/x-icon">
+    <title>IoT UseLessCases</title>
+    <style type="text/css">
+        .aiit_fach {
+            color: blue;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/quasar.ie.polyfills.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@latest/dist/vue.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/quasar.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/lang/pt-br.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/icon-set/fontawesome-v5.umd.min.js"></script>
+    <div id="q-app">
+        <q-layout view="lhr lpr lfr">
+            <q-page-container>
+                <q-page>
+                    <q-page-sticky style="z-index: 1;" position="top-right" :offset="[18, 18]">
+                        <q-btn flat round color="black" icon="settings" @click="showDialog=true" />
+                    </q-page-sticky>
+
+                    <q-card v-if="showDialog==true" style="width:350px;
+                           margin: 10px;
+                           position:absolute;
+                           right:0px; 
+                           z-index: 1;">
+                        <q-card-section class="row items-center justify-between">
+                            <div class="text-weight">Settings</div>
+                            <q-btn round flat color="black" icon="cancel" @click="showDialog=false" />
+                        </q-card-section>
+                    </q-card>
+
+                    <div class="prevPageDiv" @click="test1--">
+                    </div>
+
+                    <div class="nextPageDiv" @click="test1++">
+                    </div>
+
+                    <q-carousel :keep-alive="true" style="width: 100vw;height: 100vh;z-index: -1;" transition-prev="slide-right" transition-next="slide-left" swipeable animated v-model="test1" infinite>
+                        <q-carousel-slide :name=1>
+                            <video style="min-width: 100%;min-height: 100%;" autoplay id=local></video>
+                        </q-carousel-slide>
+                        <q-carousel-slide :name=2 img-src="IMAGES/Bild1.jpg"></q-carousel-slide>
+                        <q-carousel-slide :name=3 img-src="IMAGES/Bild2.jpg"></q-carousel-slide>
+                        <q-carousel-slide :name=4 img-src="IMAGES/Bild3.jpg"></q-carousel-slide>
+                        <q-carousel-slide :name=5 img-src="IMAGES/Bild4.png"></q-carousel-slide>
+                    </q-carousel>
+                </q-page>
+            </q-page-container>
+        </q-layout>
+    </div>
+    <style>
+        .prevPageDiv {
+            opacity: 0;
+            background-color: grey;
+            position: absolute;
+            width: 100px;
+            height: 100%;
+            left: 0px;
+            transition: 0.5s;
+        }
+        
+        .prevPageDiv:hover {
+            opacity: 0.8;
+        }
+        
+        .nextPageDiv {
+            opacity: 0;
+            background-color: grey;
+            position: absolute;
+            width: 100px;
+            height: 100%;
+            right: 0px;
+            transition: 0.5s;
+        }
+        
+        .nextPageDiv:hover {
+            opacity: 0.8;
+        }
+    </style>
+    <script>
+        var app = new Vue({
+            el: '#q-app',
+            data: {
+                right: 0,
+                loading1: false,
+                percentage1: 0,
+                loading2: false,
+                percentage2: 0,
+                loading3: false,
+                percentage3: 0,
+                test1: 1,
+                local: "",
+                fullscreen: false,
+                showDialog: false,
+                localVideo: null,
+            },
+            computed: {
+                voltage: function() {
+                    var v = this;
+                    var U = v.R * v.I;
+                    return U;
+                }
+            },
+            methods: {
+                refreshMainCamera() {
+                    console.log("Refreshing");
+                    var v = this
+
+                    navigator.mediaDevices.getUserMedia({
+                        audio: false,
+                        video: {
+                            width: {
+                                min: 1280
+                            },
+                            height: {
+                                min: 720
+                            }
+                        }
+                    }, ).then(stream => {
+                        v.localVideo.srcObject = stream;
+                    })
+
+                }
+            },
+            watch: {
+                test1(newValue, oldValue) {
+                    this.test1 = newValue % 6;
+                    if (newValue < 1) this.test1 = 1;
+                    if (newValue == 1)
+                        this.refreshMainCamera();
+                }
+            },
+            beforeDestroy() {},
+            mounted: function() {
+                this.localVideo = document.getElementById("local");
+                this.refreshMainCamera();
+            }
+        })
+    </script>
+</body>
+
+</html>
