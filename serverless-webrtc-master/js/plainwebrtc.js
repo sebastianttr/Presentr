@@ -60,11 +60,35 @@ pc.ondatachannel = function(e) {
     }
 };
 
+function sendOfferToServer(offer) {
+    var myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+
+    var raw = JSON.stringify({
+        "offer": offer
+    });
+
+    var requestOptions = {
+        method: 'POST',
+        headers: myHeaders,
+        body: raw,
+        redirect: 'follow'
+    };
+
+    fetch("http://localhost:8085/addNewOffer", requestOptions)
+        .then(response => response.text())
+        .then(result => {
+            localOffer.value = JSON.parse(result).offerID
+        })
+        .catch(error => console.log('error', error));
+}
+
 pc.onicecandidate = function(e) {
     var cand = e.candidate;
     if (!cand) {
         console.log('iceGatheringState complete', pc.localDescription.sdp);
-        localOffer.value = JSON.stringify(pc.localDescription);
+        //localOffer.value = JSON.stringify(pc.localDescription);
+        sendOfferToServer(pc.localDescription);
     } else {
         console.log(cand.candidate);
     }
@@ -95,6 +119,8 @@ remoteOfferGot.onclick = function() {
         }
     }).catch(errHandler);
 }
+
+
 localOfferSet.onclick = function() {
     if (chatEnabled) {
         _chatChannel = pc.createDataChannel('chatChannel');

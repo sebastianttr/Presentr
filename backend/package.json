@@ -1,0 +1,15 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Backend for WebRTC based Presentation Software",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js -port 8081"
+  },
+  "author": "Sebastian Tatar, Michael Forster",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.1"
+  }
+}
