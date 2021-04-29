@@ -34,10 +34,17 @@
         <q-layout view="lhr lpr lfr">
             <q-page-container>
                 <q-page>
-                    <q-page-sticky style="z-index: 1;" position="top-right" :offset="[18, 18]">
-                        <q-btn flat round color="black" icon="settings" @click="showDialog=true" />
-                    </q-page-sticky>
 
+                    <div v-if="roleSelection=='master'">
+                        <div class="prevPageDiv" @click="test1--">
+                        </div>
+
+                        <div class="nextPageDiv" @click="test1++">
+                        </div>
+                        <q-page-sticky style="z-index: 1;" position="top-right" :offset="[18, 18]">
+                            <q-btn flat round color="black" icon="settings" @click="showDialog=true" />
+                        </q-page-sticky>
+                    </div>
 
                     <transition name="slide-fade">
                         <q-card v-if="showDialog==true" style="width:350px;
@@ -52,12 +59,19 @@
                             </div>
                             <q-btn rounded style="width: 100%;margin-top: 10px;" color="green" label="Add new page" @click="addNewPage"></q-btn>
                             <q-btn rounded style="width: 100%;margin-top: 10px;" color="green" label="Generate new room" @click="generateNewRoom"></q-btn>
-
+                            <div class="q-ma-sm" v-if="offerIDMaster!=null">
+                                Your Offer Code is
+                                <div class="text-h5">
+                                    {{offerIDMaster}}
+                                </div>
+                            </div>
                             <q-scroll-area style="height: 200px;">
                                 <div v-for="(item,index) in pages">
-                                    <q-expansion-item expand-separator icon="perm_identity" label="Account settings" caption="John Doe">
+                                    <q-expansion-item expand-separator icon="computer" :label="'Page ' + (index + 1)">
                                         <q-card>
-                                            <div class="row items-center">
+                                            <div class="q-ma-sm row items-center justify-between">
+                                                <q-btn rounded style="width: 100%;" color="red" :label="'Delete Page ' +  (index + 1)" @click="deletePage(index)">
+                                                </q-btn>
                                                 <div style="font-size: 15px;">
                                                     Mute
                                                 </div>
@@ -69,12 +83,6 @@
                             </q-scroll-area>
                         </q-card>
                     </transition>
-
-                    <div class="prevPageDiv" @click="test1--">
-                    </div>
-
-                    <div class="nextPageDiv" @click="test1++">
-                    </div>
 
                     <q-carousel :keep-alive="true" style="width: 100vw;height: 100vh;z-index: -1;" transition-prev="slide-right" transition-next="slide-left" swipeable animated v-model="test1" infinite>
                         <q-carousel-slide :name=0>
@@ -88,13 +96,13 @@
                     </q-carousel>
 
 
-                    <q-dialog v-model="start">
+                    <q-dialog v-model="start" transition-show="jump-up" transition-hide="jump-down">
                         <div class="q-ma-md" style="border-radius: 20px;box-shadow: 2px 2px 15px rgba(0, 10, 12, 0.8);background-color: white;">
                             <div style="width:400px;">
                                 <div class="column items-center justify-center content-center">
                                     <div class="text-h4 q-ma-sm">Welcome!</div>
                                     <div>Select the following:</div>
-                                    <q-btn-toggle class="q-ma-md" v-model="roleSelection" push rounded outlined toggle-color="purple" :options="[
+                                    <q-btn-toggle class="q-ma-md " v-model="roleSelection" no-caps unelevated toggle-color="green" :options="[
                                         {value: 'master', slot: 'one'},
                                         {value: 'slave', slot: 'two'},
                                         ]">
@@ -117,9 +125,23 @@
                                             <q-icon right name="view_in_ar" />
                                         </div>
                                         </template>
-
-
                                     </q-btn-toggle>
+                                    <q-btn style="width: 100%;margin-top: 10px;" color="green" label="Continue" @click="start=false"></q-btn>
+                                </div>
+                            </div>
+                        </div>
+                    </q-dialog>
+
+                    <q-dialog v-model="slaveDialog" transition-show="jump-up" transition-hide="jump-down">
+                        <div class="q-ma-md" style="border-radius: 20px;box-shadow: 2px 2px 15px rgba(0, 10, 12, 0.8);background-color: white;">
+                            <div style="width:400px;">
+                                <div class="column items-center justify-center content-center">
+                                    <div class="text-h5 q-ma-sm">Enter Offer ID:</div>
+                                    <q-input v-model="offerIDSlave" color="green" label="Offer ID" style="width: 90%;"></q-input>
+                                    <div class="text-h5 q-ma-sm">Enter Video Source:</div>
+                                    <q-select v-model="cameraSelected" :options="cameras" label="Camera" style="width: 90%;"></q-select>
+                                    <q-btn style="width: 100%;margin-top: 10px;" color="green" label="Stream" @click="slaveDialog=false"></q-btn>
+                                    {{testData}}
                                 </div>
                             </div>
                         </div>
@@ -133,39 +155,62 @@
         var app = new Vue({
             el: '#q-app',
             data: {
-                start: false,
+                //live-server --https=C:\Users\narit\AppData\Roaming\npm\node_modules\live-server-https
+                start: true,
+                slaveDialog: false,
+                slaveVideoSource: "",
+                cameras: [
+                    "Front camera", "Rear camera"
+                ],
+                cameraSelected: "Front camera",
+                testData: null,
                 roleSelection: "master",
                 webrtcConf: {
                     'iceServers': [{
                         'urls': 'stun:stun.l.google.com:19302'
                     }]
                 },
+                wsUriNewOffer: "wss://192.168.0.159:8086/addNewOffer",
+                wsUriAcceptOffer: "wss://192.168.0.159:8086/acceptOffer",
                 test1: 0,
                 fullscreen: false,
                 showDialog: false,
                 localVideo: null,
+                localStream: null,
                 pages: [],
                 webSocketAccept: null,
-                websocketAdd: null
+                websocketAdd: null,
+                offerIDMaster: null,
+                offerIDSlave: null,
+                pc: null
             },
             methods: {
-                refreshMainCamera() {
+                refreshMainCamera(cam) {
                     var v = this
+                    if (v.localStream) {
+                        const tracks = stream.getTracks();
+                        tracks.forEach(track => track.stop());
+                    }
                     navigator.mediaDevices.getUserMedia({
                         audio: false,
                         video: {
+                            facingMode: cam,
                             width: {
                                 min: 1280
                             },
                             height: {
                                 min: 720
                             }
-                        }
+                        },
                     }, ).then(stream => {
+                        v.localStream = stream;
+                        v.testData = "Updating"
+                        v.pc.addStream(stream);
+                        v.localVideo.srcObject = null;
                         v.localVideo.srcObject = stream;
                     })
                 },
-                refrshVideo() {
+                refreshVideo() {
                     //pages.irgendwos
                 },
                 addNewPage() {
@@ -175,8 +220,46 @@
                         localVideo: null
                     })
                 },
+                deletePage(index) {
+                    console.log("Removing page " + index);
+                    this.pages.splice(index, 1);
+                },
+                errHandler(err) {
+                    console.log(err);
+                },
+                sendOfferToServer(offer) {
+                    var v = this
+                    console.log("Sending to server!");
+                    let raw = JSON.stringify({
+                        "offer": offer.localDescription
+                    });
+                    v.websocketAdd = new WebSocket(this.wsUriNewOffer);
+                    v.websocketAdd.onopen = function() {
+                        v.websocketAdd.send(raw);
+                    }
+                    v.websocketAdd.onmessage = (msg) => {
+                        try {
+                            if (JSON.parse(msg.data).type) {
+                                console.log("It should work by now...")
+                                var _remoteOffer = new RTCSessionDescription(JSON.parse(msg.data));
+                                v.pc.setRemoteDescription(_remoteOffer).then(function() {
+                                    if (_remoteOffer.type == "offer") {
+                                        v.pc.createAnswer().then(function(description) {
+                                            v.pc.setLocalDescription(description).then(function() {}).catch(v.errHandler);
+                                        }).catch(v.errHandler);
+                                    }
+                                }).catch(v.errHandler);
+                            } else {
+                                var localOfferVal = JSON.parse(msg.data).offerID;
+                                v.offerIDMaster = localOfferVal
+                            }
+                        } catch (e) {
+
+                        }
+                    }
+                },
                 generateNewRoom() {
-                    let pc = new RTCPeerConnection(conf);
+                    let pc = this.pc
                     pc.createOffer().then(des => {
                         console.log('createOffer ok ');
                         pc.setLocalDescription(des).then(() => {
@@ -189,10 +272,11 @@
                                 }
                             }, 2000);
                             console.log('setLocalDescription ok');
-                        }).catch(errHandler);
+                        }).catch(this.errHandler);
                         // For chat
-                    }).catch(errHandler);
-                }
+                    }).catch(this.errHandler);
+                },
+
             },
             watch: {
                 test1(newValue, oldValue) {
@@ -201,15 +285,55 @@
                     if (newValue == 0)
                         this.refreshMainCamera();
                     else
-                        this.refrshVideo();
+                        this.refreshVideo();
                     this.test1 = newValue
                 },
-                pages(newValue, oldValue) {}
+                start(newValue, oldValue) {
+                    let v = this
+                    if (!newValue && this.roleSelection == 'slave') {
+                        this.slaveDialog = true;
+                        v.refreshMainCamera((this.cameraSelected == "Front camera") ? "environment" : "user");
+                    }
+                },
+                cameraSelected(newValue, oldValue) {
+                    this.refreshMainCamera((this.cameraSelected == "Front camera") ? "environment" : "user");
+                }
             },
             beforeDestroy() {},
             mounted: function() {
+
+                this.pc = new RTCPeerConnection(this.webrtcConf);
+                var v = this
+                this.pc.onicecandidate = function(e) {
+                    var cand = e.candidate;
+                    console.log("OnIceCandidate");
+                    if (!cand) {
+                        console.log('iceGatheringState complete', v.pc.localDescription.sdp);
+                        if (v.roleSelection == "master") {
+                            //send offer to the server
+                            v.sendOfferToServer(v.pc);
+                        } else if (v.roleSelection == "slave") {
+                            console.log("Sending remote to server")
+                            v.webSocketAccept.send(JSON.stringify(v.pc.localDescription))
+                        }
+                    } else {
+                        console.log(cand.candidate);
+                    }
+                }
+
+                this.pc.oniceconnectionstatechange = function() {
+                    console.log('ICE Connection State Changed.');
+                }
+                this.pc.ontrack = function(e) {
+                    console.log('A new remote track came in!', e);
+                    //remoteVideo.srcObject = e.streams[0];
+                }
+                this.pc.onconnection = function(e) {
+                    console.log('WebRTC Connected. ');
+                }
                 this.localVideo = document.getElementById("local");
-                this.refreshMainCamera();
+
+                this.refreshMainCamera("user");
             }
         })
     </script>
@@ -240,6 +364,10 @@
         
         .nextPageDiv:hover {
             opacity: 0.8;
+        }
+        
+        .my-custom-toggle {
+            border: 1px solid green
         }
         
         .slide-fade-enter-active {

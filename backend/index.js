@@ -91,6 +91,8 @@ wss2.on('connection', function connection(ws, req) {
     }));
 });
 
+//URL Paths deklarieren 
+
 server.on('upgrade', function upgrade(request, socket, head) {
     const pathname = url.parse(request.url).pathname;
 
