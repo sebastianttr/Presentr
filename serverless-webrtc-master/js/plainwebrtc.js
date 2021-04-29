@@ -174,6 +174,7 @@ localOfferSet.onclick = function() {
         chatChannel(_chatChannel);
         fileChannel(_fileChannel);
     }
+
     offerRemoteOrLocal = "local";
     pc.createOffer().then(des => {
         console.log('createOffer ok ');

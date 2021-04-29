@@ -2,172 +2,263 @@
 <html>
 
 <head>
-    <meta charset="utf-8">
-    <meta name="robots" content="noindex, nofollow">
-    <meta name="googlebot" content="noindex, nofollow">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" type="text/css">
-    <link href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/ionicons@^4.0.0/dist/css/ionicons.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@^3.0.0/css/materialdesignicons.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/animate.css@^3.5.2/animate.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/quasar.min.css" rel="stylesheet" type="text/css">
-    <link rel="icon" href="https://icons-for-free.com/iconfiles/png/512/quasar-1324440220466918651.png" type="image/x-icon">
-    <title>IoT UseCases</title>
-    <meta type="text/css">
-    </meta>
+    <title>Plain webRTC</title>
+    <style type="text/css">
+        .sent {
+            color: blue;
+        }
+    </style>
 </head>
 
 <body>
-    <script src="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/quasar.ie.polyfills.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vue@latest/dist/vue.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/quasar.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/lang/pt-br.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/quasar@^1.0.5/dist/icon-set/fontawesome-v5.umd.min.js"></script>
-    <div id="q-app">
-        <q-layout view="lhr lpr lfr">
-            <q-page-container>
-                <q-page>
-                    <q-page-sticky style="z-index: 1;" position="top-right" :offset="[18, 18]">
-                        <q-btn flat round color="black" icon="settings" @click="showDialog=true" />
-                    </q-page-sticky>
-
-                    <transition name="slide-fade">
-                        <q-card v-if="showDialog==true" style="width:350px;
-                            margin: 10px;
-                            position:absolute;
-                            right:0px; 
-                            z-index: 1;
-                            padding: 10px;">
-                            <div class="row items-center justify-between">
-                                <div class="text-weight" style="font-size: 20px;">Settings</div>
-                                <q-btn round flat color="black" icon="cancel" @click="showDialog=false" />
-                            </div>
-                            <q-btn rounded style="width: 100%;margin-top: 10px;" color="green" label="Add new page" @click="addNewPage" />
-                        </q-card>
-                    </transition>
-
-                    <div class="prevPageDiv" @click="test1--">
-                    </div>
-
-                    <div class="nextPageDiv" @click="test1++">
-                    </div>
-
-                    <q-carousel :keep-alive="true" style="width: 100vw;height: 100vh;z-index: -1;" transition-prev="slide-right" transition-next="slide-left" swipeable animated v-model="test1" infinite>
-                        <q-carousel-slide :name=0>
-                            <video style="min-width: 100%;min-height: 100%;" autoplay id=local></video>
-                        </q-carousel-slide>
-                        <div v-for="(item,index) in pages">
-                            <q-carousel-slide style="min-width: 100%;min-height: 100%;" :name="index" img-src="IMAGES/Bild1.jpg">
-                                <video style="min-width: 100%;min-height: 100%;" autoplay :id="'local'+index"></video>
-                            </q-carousel-slide>
-                        </div>
-
-
-                    </q-carousel>
-                </q-page>
-            </q-page-container>
-        </q-layout>
+    <div>
+        <input type="checkbox" id="enable_chat" onclick="enableChat()" checked> Enable chat
+        <span id=micused style="right:0;position:fixed;"></span>
     </div>
-    <script>
-        var app = new Vue({
-            el: '#q-app',
-            data: {
-                test1: 0,
-                fullscreen: false,
-                showDialog: false,
-                localVideo: null,
-                pages: [{
-                    mute: true
+
+    <div>
+        <h4>LocalStream</h4>
+        <input type="checkbox" id="enableAudioFile">Audio File
+        <input type="file" id="streamAudioFile">
+        <br>
+        <!-- <input type="checkbox" id="enable_mic" checked>Microphone -->
+    </div>
+    <div>
+        <p>
+            <video width=250 id=local autoplay></video> Local
+            <textarea rows="4" cols="50" id=localOffer></textarea>
+            <button id=localOfferSet>CreateOffer</button>
+        </p>
+    </div>
+    <div>
+        <p>
+            <video width=250 id=remote autoplay></video> Remote
+            <textarea id="remoteOffer" rows="4" cols="50" placeholder="Paste remote SDP"></textarea>
+            <button id=remoteOfferGot>Answer</button>
+        </p>
+    </div>
+    <div id="chat" style="overflow:scroll;"></div>
+    <div>
+        <br><br>
+        <form action="" onsubmit="event.preventDefault();return sendMsg();">
+            <input id=sendTxt type="text" name="" placeholder="chat here" size="50">
+            <button type="submit">send</button>
+        </form>
+    </div>
+    <div>
+        <p>
+            File transfer:
+        </p>
+        <div>
+            <progress value="0" id="sendFileProg"></progress>
+            <input type="file" name="" id=fileTransfer>
+            <button type="submit" onclick="sendFile()">send</button>
+        </div>
+        <div>
+            <p>
+                <progress value="0" id="recFileProg"></progress>
+                <a href="" id=file_download></a>
+            </p>
+        </div>
+    </div>
+    <script src="js/plainwebrtc.js"></script>
+</body>
+
+</html>
+</q-scroll-area>
+
+</q-card>
+</transition>
+
+<div class="prevPageDiv" @click="test1--">
+</div>
+
+<div class="nextPageDiv" @click="test1++">
+</div>
+
+<q-carousel :keep-alive="true" style="width: 100vw;height: 100vh;z-index: -1;" transition-prev="slide-right" transition-next="slide-left" swipeable animated v-model="test1" infinite>
+    <q-carousel-slide :name=0>
+        <video style="min-width: 100%;min-height: 100%;" autoplay id=local></video>
+    </q-carousel-slide>
+    <div v-for="(item,index) in pages">
+        <q-carousel-slide style="min-width: 100%;min-height: 100%;" :name="index" img-src="IMAGES/Bild1.jpg">
+            <video style="min-width: 100%;min-height: 100%;" autoplay :id="'local'+index"></video>
+        </q-carousel-slide>
+    </div>
+</q-carousel>
+
+
+<q-dialog v-model="start">
+    <div class="q-ma-md" style="border-radius: 20px;box-shadow: 2px 2px 15px rgba(0, 10, 12, 0.8);background-color: white;">
+        <div style="width:400px;">
+            <div class="column items-center justify-center content-center">
+                <div class="text-h4 q-ma-sm">Welcome!</div>
+                <div>Select the following:</div>
+                <q-btn-toggle class="q-ma-md" v-model="roleSelection" push rounded outlined toggle-color="purple" :options="[
+                                        {value: 'master', slot: 'one'},
+                                        {value: 'slave', slot: 'two'},
+                                        ]">
+                    <template v-slot:one>
+                                        <div class="row items-center no-wrap">
+                                            <div class="text-center">
+                                             Master <br>
+                                             I display video
+                                            </div>
+                                            <q-icon right name="computer" />
+                                        </div>
+                                        </template>
+
+                    <template v-slot:two>
+                                        <div class="row items-center no-wrap">
+                                            <div class="text-center">
+                                            Slave <br>
+                                            I stream video
+                                            </div>
+                                            <q-icon right name="view_in_ar" />
+                                        </div>
+                                        </template>
+
+
+                </q-btn-toggle>
+            </div>
+        </div>
+    </div>
+</q-dialog>
+
+</q-page>
+</q-page-container>
+</q-layout>
+</div>
+<script>
+    var app = new Vue({
+        el: '#q-app',
+        data: {
+            start: false,
+            roleSelection: "master",
+            webrtcConf: {
+                'iceServers': [{
+                    'urls': 'stun:stun.l.google.com:19302'
                 }]
             },
-            methods: {
-                refreshMainCamera() {
-                    var v = this
-
-                    navigator.mediaDevices.getUserMedia({
-                        audio: false,
-                        video: {
-                            width: {
-                                min: 1280
-                            },
-                            height: {
-                                min: 720
-                            }
+            test1: 0,
+            fullscreen: false,
+            showDialog: false,
+            localVideo: null,
+            pages: [],
+            webSocketAccept: null,
+            websocketAdd: null
+        },
+        methods: {
+            refreshMainCamera() {
+                var v = this
+                navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: {
+                        width: {
+                            min: 1280
+                        },
+                        height: {
+                            min: 720
                         }
-                    }, ).then(stream => {
-                        v.localVideo.srcObject = stream;
-                    })
-                },
-                addNewPage() {
-                    console.log("addNewPage");
-                    this.pages.push({
-                        mute: true
-                    })
-                }
+                    }
+                }, ).then(stream => {
+                    v.localVideo.srcObject = stream;
+                })
             },
-            watch: {
-                test1(newValue, oldValue) {
-                    newValue = newValue % this.pages.length;
-                    if (newValue < 0) newValue = 0;
-                    if (newValue == 0)
-                        this.refreshMainCamera();
-                    this.test1 = newValue
-                }
+            refrshVideo() {
+                //pages.irgendwos
             },
-            beforeDestroy() {},
-            mounted: function() {
-                this.localVideo = document.getElementById("local");
-                this.refreshMainCamera();
+            addNewPage() {
+                console.log("addNewPage");
+                this.pages.push({
+                    mute: true,
+                    localVideo: null
+                })
+            },
+            generateRoomNumber() {
+                let pc = new RTCPeerConnection(conf);
+                pc.createOffer().then(des => {
+                    console.log('createOffer ok ');
+                    pc.setLocalDescription(des).then(() => {
+                        setTimeout(function() {
+                            if (pc.iceGatheringState == "complete") {
+                                return;
+                            } else {
+                                console.log('after GetherTimeout');
+                                //localOffer.value = JSON.stringify(pc.localDescription);
+                            }
+                        }, 2000);
+                        console.log('setLocalDescription ok');
+                    }).catch(errHandler);
+                    // For chat
+                }).catch(errHandler);
             }
-        })
-    </script>
-    <style>
-        .prevPageDiv {
-            opacity: 0;
-            background-color: grey;
-            position: absolute;
-            width: 100px;
-            height: 100%;
-            left: 0px;
-            transition: 0.5s;
+        },
+        watch: {
+            test1(newValue, oldValue) {
+                newValue = newValue % (this.pages.length + 1);
+                if (newValue < 0) newValue = 0;
+                if (newValue == 0)
+                    this.refreshMainCamera();
+                else
+                    this.refrshVideo();
+                this.test1 = newValue
+            },
+            pages(newValue, oldValue) {}
+        },
+        beforeDestroy() {},
+        mounted: function() {
+            this.localVideo = document.getElementById("local");
+            this.refreshMainCamera();
         }
-        
-        .prevPageDiv:hover {
-            opacity: 0.8;
-        }
-        
-        .nextPageDiv {
-            opacity: 0;
-            background-color: grey;
-            position: absolute;
-            width: 100px;
-            height: 100%;
-            right: 0px;
-            transition: 0.5s;
-        }
-        
-        .nextPageDiv:hover {
-            opacity: 0.8;
-        }
-        
-        .slide-fade-enter-active {
-            transition: all .3s ease;
-        }
-        
-        .slide-fade-leave-active {
-            transition: all .3s cubic-bezier(1.0, 0.5, 0.8, 1.0);
-        }
-        
-        .slide-fade-enter,
-        .slide-fade-leave-to
-        /* .slide-fade-leave-active below version 2.1.8 */
-        
-        {
-            transform: translateX(10px);
-            opacity: 0;
-        }
-    </style>
+    })
+</script>
+<style>
+    .prevPageDiv {
+        opacity: 0;
+        background-color: grey;
+        position: absolute;
+        width: 100px;
+        height: 100%;
+        left: 0px;
+        transition: 0.5s;
+    }
+    
+    .prevPageDiv:hover {
+        opacity: 0.8;
+    }
+    
+    .nextPageDiv {
+        opacity: 0;
+        background-color: grey;
+        position: absolute;
+        width: 100px;
+        height: 100%;
+        right: 0px;
+        transition: 0.5s;
+    }
+    
+    .nextPageDiv:hover {
+        opacity: 0.8;
+    }
+    
+    .slide-fade-enter-active {
+        transition: all .3s ease;
+    }
+    
+    .slide-fade-leave-active {
+        transition: all .3s cubic-bezier(1.0, 0.5, 0.8, 1.0);
+    }
+    
+    .slide-fade-enter,
+    .slide-fade-leave-to
+    /* .slide-fade-leave-active below version 2.1.8 */
+    
+    {
+        transform: translateX(10px);
+        opacity: 0;
+    }
+</style>
 </body>
 
 </html>
