@@ -26,7 +26,6 @@ app.use(express.urlencoded({
     extended: true
 }));
 
-let message1;
 
 
 var offers = [];
@@ -37,23 +36,22 @@ wss1.on('connection', function connection(ws, req) {
     const ip = req.socket.remoteAddress;
     const port = req.socket.remotePort;
     console.log("Client connected with IP %s:%s" + ip, port);
-    let id = 0;
 
     ws.on('message', message => {
         var offer = JSON.parse(message);
-        console.log(offer)
+        console.log(offer);
 
         offers.push({
             offerID: offers.length + 1,
             offer: offer
         });
 
-        id = offers[offers.length - 1].offerID;
+        let id = offers[offers.length - 1].offerID;
+
         globalEventEmitter.addListener("sendBackMaster" + String(id), msg => {
             console.log("Sending back to master")
-            ws.send(message1)
-            offers.splice(id, 1)
-            message1 = null;
+            ws.send(msg)
+            offers.splice(id - 1, 1)
         })
 
         console.log("New WebRTC Offer added with id " + JSON.stringify(offers[offers.length - 1].offerID));
@@ -78,7 +76,7 @@ wss2.on('connection', function connection(ws, req) {
 
     ws.on('message', message => {
         message1 = message;
-        globalEventEmitter.emit("sendBackMaster" + String(query.id))
+        globalEventEmitter.emit("sendBackMaster" + String(query.id), message)
     });
 
     ws.on('close', message => {
