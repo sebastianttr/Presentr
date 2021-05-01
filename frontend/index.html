@@ -89,7 +89,7 @@
                             <video style="min-width: 100%;min-height: 100%;" autoplay id=local></video>
                         </q-carousel-slide>
                         <q-carousel-slide v-for="(item, index) in pages" :key="index+1000" :name="Number(index)+1">
-                            <video style="min-width: 100%;min-height: 100%;" autoplay id=local></video>
+                            <video style="min-width: 100%;min-height: 100%;" autoplay id="'remote'+index"></video>
                             <div class="q-ma-md" style="
                                 border-radius: 20px;
                                 box-shadow: 2px 2px 15px rgba(0, 10, 12, 0.8);
@@ -101,8 +101,8 @@
                                 ">
                                 <div style="width:400px;">
                                     <div class="column items-center justify-center content-center">
-                                        <div class="text-h5 q-ma-sm">This page's offer id is</div>
-                                        <div class="text-h5 q-ma-sm">item.offerID</div>
+                                        <div class="text-h5 q-ma-sm">This pages offer ID is</div>
+                                        <div class="text-h5 q-ma-sm">{{item.offerID}}</div>
                                     </div>
                                 </div>
                             </div>
@@ -171,7 +171,7 @@
             el: '#q-app',
             data: {
                 //live-server --https=C:\Users\narit\AppData\Roaming\npm\node_modules\live-server-https
-                start: true,
+                start: false,
                 slaveDialog: false,
                 slaveVideoSource: "",
                 cameras: [
@@ -215,7 +215,7 @@
                         },
                     }, ).then(stream => {
                         v.localStream = stream;
-                        v.pc.addStream(stream);
+                        //v.pc.addStream(stream);
                         v.localVideo.srcObject = null;
                         v.localVideo.srcObject = stream;
                     })
@@ -226,12 +226,14 @@
                 addNewPage() {
                     console.log("addNewPage");
                     this.pages.push({
+                        offerID: null,
                         mute: true,
                         localVideo: null,
-                        localStream: null,
+                        localStream: this.localStream,
                         pc: null,
                         ws: null,
                     })
+                    this.createNewPeerConnection()
                 },
                 nextPage() {
                     console.log(this.test1)
@@ -262,31 +264,33 @@
                 errHandler(err) {
                     console.log(err);
                 },
-                sendOfferToServer(offer) {
+                sendOfferToServer(offer, index) {
                     var v = this
                     console.log("Sending to server!");
                     let raw = JSON.stringify({
                         "offer": offer.localDescription
                     });
-                    v.websocketAdd = new WebSocket(this.wsUriNewOffer);
-                    v.websocketAdd.onopen = function() {
-                        v.websocketAdd.send(raw);
-                    }
+
+                    v.websocketAdd.send(raw);
+
+
                     v.websocketAdd.onmessage = (msg) => {
+                        var i = index
+                        var pc = this.pages[index].pc
                         try {
                             if (JSON.parse(msg.data).type) {
                                 console.log("It should work by now...")
                                 var _remoteOffer = new RTCSessionDescription(JSON.parse(msg.data));
-                                v.pc.setRemoteDescription(_remoteOffer).then(function() {
+                                pc.setRemoteDescription(_remoteOffer).then(function() {
                                     if (_remoteOffer.type == "offer") {
-                                        v.pc.createAnswer().then(function(description) {
-                                            v.pc.setLocalDescription(description).then(function() {}).catch(v.errHandler);
+                                        pc.createAnswer().then(function(description) {
+                                            pc.setLocalDescription(description).then(function() {}).catch(v.errHandler);
                                         }).catch(v.errHandler);
                                     }
                                 }).catch(v.errHandler);
                             } else {
-                                var localOfferVal = JSON.parse(msg.data).offerID;
-                                v.offerIDMaster = localOfferVal
+                                console.log("Got Offer ID for Page " + i)
+                                this.pages[i].offerID = JSON.parse(msg.data).offerID;
                             }
                         } catch (e) {
 
@@ -294,13 +298,46 @@
                     }
                 },
                 createNewPeerConnection() {
-                    this.pages[this.pages.length].pc = new RTCPeerConnection(this.webrtcConf);
-                    let newPC = this.pages[this.pages.length].pc
-                    newPC.createOffer().then(des => {
-                        console.log('createOffer ok ');
-                        newPC.setLocalDescription(des).then(() => {
+                    let pc = new RTCPeerConnection(this.webrtcConf); //Object instanzieren
+                    var len = this.pages.length - 1;
+                    pc.addStream(this.pages[len].localStream);
+                    this.pages[len].localVideo = document.getElementById("remote" + len);
+                    let v = this
+
+                    pc.onicecandidate = function(e) {
+                        var cand = e.candidate;
+                        console.log("OnIceCandidate");
+                        if (!cand) {
+                            console.log('iceGatheringState complete', pc.localDescription.sdp);
+                            if (v.roleSelection == "master") {
+                                //send offer to the server
+                                v.sendOfferToServer(pc, v.pages.length - 1);
+                            } else if (v.roleSelection == "slave") {
+                                console.log("Sending remote to server")
+                                v.webSocketAccept.send(JSON.stringify(pc.localDescription))
+                            }
+                        } else {
+                            console.log(cand.candidate);
+                        }
+                    }
+
+                    pc.oniceconnectionstatechange = function() {
+                        console.log('ICE Connection State Changed.');
+                    }
+                    pc.ontrack = function(e) {
+                        var index = len
+                        console.log('A new remote track came in!', e);
+                        document.getElementById("remote0").srcObject = e.streams[0];
+                    }
+                    pc.onconnection = function(e) {
+                        console.log('WebRTC Connected. ');
+                    }
+
+                    pc.createOffer().then(des => {
+                        console.log('createOffer ok ' + JSON.stringify(pc));
+                        pc.setLocalDescription(des).then(() => {
                             setTimeout(function() {
-                                if (newPC.iceGatheringState == "complete") {
+                                if (pc.iceGatheringState == "complete") {
                                     return;
                                 } else {
                                     console.log('after GetherTimeout');
@@ -311,7 +348,9 @@
                         }).catch(this.errHandler);
                         // For chat
                     }).catch(this.errHandler);
+                    this.pages[this.pages.length - 1].pc = pc
                 },
+
             },
             watch: {
                 start(newValue, oldValue) {
@@ -327,38 +366,9 @@
             },
             beforeDestroy() {},
             mounted: function() {
-                this.pc = new RTCPeerConnection(this.webrtcConf);
-                var v = this
-                this.pc.onicecandidate = function(e) {
-                    var cand = e.candidate;
-                    console.log("OnIceCandidate");
-                    if (!cand) {
-                        console.log('iceGatheringState complete', v.pc.localDescription.sdp);
-                        if (v.roleSelection == "master") {
-                            //send offer to the server
-                            v.sendOfferToServer(v.pc);
-                        } else if (v.roleSelection == "slave") {
-                            console.log("Sending remote to server")
-                            v.webSocketAccept.send(JSON.stringify(v.pc.localDescription))
-                        }
-                    } else {
-                        console.log(cand.candidate);
-                    }
-                }
+                this.websocketAdd = new WebSocket(this.wsUriNewOffer);
 
-                this.pc.oniceconnectionstatechange = function() {
-                    console.log('ICE Connection State Changed.');
-                }
-                this.pc.ontrack = function(e) {
-                    console.log('A new remote track came in!', e);
-                    //remoteVideo.srcObject = e.streams[0];
-                    console.log("N Tracks: " + e.streams.length);
-                }
-                this.pc.onconnection = function(e) {
-                    console.log('WebRTC Connected. ');
-                }
                 this.localVideo = document.getElementById("local");
-
                 this.refreshMainCamera("user");
             }
         })

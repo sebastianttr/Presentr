@@ -50,8 +50,9 @@ wss1.on('connection', function connection(ws, req) {
 
         id = offers[offers.length - 1].offerID;
         globalEventEmitter.addListener("sendBackMaster" + String(id), msg => {
+            console.log("Sending back to master")
             ws.send(message1)
-            offers.slice(id, id)
+            offers.splice(id, 1)
             message1 = null;
         })
 
