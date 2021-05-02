@@ -10,11 +10,13 @@ const querystring = require('querystring');
 
 
 var app = express();
+app.use("/", express.static('/root/websites/portfolio'));
+
 var globalEventEmitter = new events.EventEmitter();
 
 const server = https.createServer({
-    cert: fs.readFileSync('ssl/certificate.crt'),
-    key: fs.readFileSync('ssl/privateKey.key')
+    cert: fs.readFileSync('/root/server/certs/certificate.crt'),
+    key: fs.readFileSync('/root/server/certs/privateKey.key')
 });
 
 const wss1 = new WebSocket.Server({ noServer: true });
@@ -26,6 +28,23 @@ app.use(express.urlencoded({
     extended: true
 }));
 
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept');
+    req.secure ? next() : res.redirect('https://' + req.headers.host + req.url)
+})
+
+app.get('/WebRTC_preview', function(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept');
+    res.sendFile("/root/websites/webrtc/index.html");
+});
+
+app.get('/', function(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept');
+    res.sendFile("/root/websites/portfolio/index.html");
+});
 
 
 var offers = [];
@@ -117,5 +136,6 @@ app.get("/getAllOffers", (req, res) => {
 })
 */
 
-app.listen(8085); //HTTP Server
+app.listen(80); //HTTP Server
+https.createServer(server, app).listen(443);
 server.listen(8086); //WebSocket Server
