@@ -72,22 +72,25 @@ wss2.on('connection', function connection(ws, req) {
     const ip = req.socket.remoteAddress;
     const port = req.socket.remotePort;
     let query = querystring.parse(url.parse(req.url).query);
-    console.log("Client connected with IP " + ip);
+    if (query.id != "null") {
+        console.log("Client connected with IP " + ip);
 
-    ws.on('message', message => {
-        message1 = message;
-        globalEventEmitter.emit("sendBackMaster" + String(query.id), message)
-    });
+        ws.on('message', message => {
+            message1 = message;
+            globalEventEmitter.emit("sendBackMaster" + String(query.id), message)
+        });
 
-    ws.on('close', message => {
-        console.log("Connection to client with IP: %s:%s lost.", ip, port);
-    });
-    var offer = offers.find(of => of.offerID == query.id);
-    console.log("Requested new WebRTC Offer with id " + query.id);
-    ws.send(JSON.stringify({
-        offerID: offer.offerID,
-        offer: offer.offer
-    }));
+        ws.on('close', message => {
+            console.log("Connection to client with IP: %s:%s lost.", ip, port);
+        });
+        var offer = offers.find(of => of.offerID == query.id);
+
+        ws.send(JSON.stringify({
+            offerID: offer.offerID,
+            offer: offer.offer
+        }));
+    }
+
 });
 
 //URL Paths deklarieren 
@@ -108,10 +111,11 @@ server.on('upgrade', function upgrade(request, socket, head) {
     }
 });
 
-
+/*
 app.get("/getAllOffers", (req, res) => {
     res.send(offers);
 })
+*/
 
 app.listen(8085); //HTTP Server
 server.listen(8086); //WebSocket Server

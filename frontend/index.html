@@ -75,12 +75,12 @@
                     </transition>
 
 
-                    <q-carousel v-model="pageIndex" :keep-alive="true" style="width: 100vw;height: 100vh;z-index: -1;" transition-prev="slide-right" transition-next="slide-left" animated control-color="primary" class="rounded-borders">
-                        <q-carousel-slide :name="0">
-                            <video style="min-width: 100vw;min-height: 100vw;" autoplay id=local></video>
+                    <q-carousel v-model="pageIndex" :keep-alive="true" style="width: 100vw;height: 100vh;z-index: -1;overflow: hidden;" transition-prev="slide-right" transition-next="slide-left" animated control-color="primary" class="rounded-borders">
+                        <q-carousel-slide :name="0" class="q-pa-none">
+                            <video style="min-width: 100%;" autoplay id=local></video>
                         </q-carousel-slide>
-                        <q-carousel-slide :disable="false" v-for="(item, index) in pages" :key="index+1000" :name="Number(index)+1">
-                            <video style="min-width: 100%;min-height: 100%;" autoplay :id="'remote'+index"></video>
+                        <q-carousel-slide class="q-pa-none" :disable="false" v-for="(item, index) in pages" :key="index+1000" :name="Number(index)+1">
+                            <video style="min-width: 100%;" autoplay :id="'remote'+index"></video>
                             <div v-if="item.remoteStream==null" class="q-ma-md" style="
                                 border-radius: 20px;
                                 box-shadow: 2px 2px 15px rgba(0, 10, 12, 0.8);
@@ -140,7 +140,9 @@
                                 <div class="text-h5 q-ml-lg q-mr-lg q-mt-md q-mb-md">Enter Offer ID:</div>
                                 <q-input v-model="offerIDSlave" color="green" label="Offer ID" style="width: 90%;"></q-input>
                                 <div class="text-h5 q-ml-lg q-mr-lg q-mt-md q-mb-md">Enter Video Source:</div>
-                                <q-select v-model="cameraSelected" :options="cameras" label="Camera" style="width: 90%;"></q-select>
+                                <q-select v-model="cameraSelected" color="green" :options="cameras" label="Camera" style="width: 90%;"></q-select>
+                                <div class="text-h5 q-ml-lg q-mr-lg q-mt-md q-mb-md">Set resolution</div>
+                                <q-select v-model="resolutionSelected" color="green" :options="resolutionOptions" label="Camera" style="width: 90%;"></q-select>
                                 <q-btn style="width: 100%;margin-top: 10px;" color="green" label="Stream" @click="acceptOffer"></q-btn>
                                 {{testData}}
                             </div>
@@ -163,6 +165,21 @@
                 cameraSelected: null,
                 testData: null,
                 roleSelection: "master",
+                resolutions: [{
+                    width: 960,
+                    height: 540
+                }, {
+                    width: 1280,
+                    height: 720
+                }, {
+                    width: 1600,
+                    height: 900
+                }, {
+                    width: 1920,
+                    height: 1080
+                }],
+                resolutionOptions: [],
+                resolutionSelected: null,
                 webrtcConf: {
                     'iceServers': [{
                         'urls': 'stun:stun.l.google.com:19302'
@@ -194,15 +211,12 @@
                     navigator.mediaDevices.getUserMedia({
                         audio: false,
                         video: {
-                            zoom: false,
                             deviceId: this.cameraSelected.value,
                             frameRate: 60,
+                            aspectRatio: 1.77777,
                             width: {
-                                min: 1280
+                                min: this.resolutionSelected.value.width
                             },
-                            height: {
-                                min: 720
-                            }
                         },
                     }, ).then(stream => {
                         v.localStream = stream;
@@ -313,8 +327,6 @@
                         var index = len
                             //console.log('A new remote track came in!', e);
                         v.pages[len].remoteVideo = document.getElementById("remote" + String(index));
-                        v.pages[len].remoteVideo.content = "initial-scale=0.1";
-                        v.pages[len].remoteVideo.content = "width=1200";
                         v.pages[len].remoteStream = e.streams[0];
                         v.pages[len].remoteVideo.srcObject = e.streams[0];
                     }
@@ -373,11 +385,14 @@
                     let v = this
                     if (!newValue && this.roleSelection == 'slave') {
                         this.slaveDialog = true;
-                        v.refreshMainCamera((this.cameraSelected == "Front camera") ? "environment" : "user");
+                        v.refreshMainCamera();
                     }
                 },
                 cameraSelected(newValue, oldValue) {
                     this.refreshMainCamera();
+                },
+                resolutionSelected(nv, ov) {
+                    this.refreshMainCamera()
                 }
             },
             beforeDestroy() {},
@@ -387,6 +402,15 @@
                 navigator.mediaDevices.enumerateDevices()
                     .then(function(devices) {
                         devices = devices.filter(dev => dev.kind == "videoinput")
+                        v.resolutionOptions = v.resolutions.map((res, index) => {
+                            return {
+                                label: res.width + " x " + res.height + " px",
+                                value: res,
+                                description: "resolution",
+                                category: String(index)
+                            }
+                        })
+                        v.resolutionSelected = v.resolutionOptions[0]
                         v.cameraSelected = devices[0];
                         devices.forEach(function(device, index) {
                             v.cameras.push({
@@ -397,7 +421,7 @@
                             })
                         });
                         v.localVideo = document.getElementById("local");
-                        v.refreshMainCamera("user");
+                        v.refreshMainCamera();
                     })
                     .catch(function(err) {
                         console.log(err.name + ": " + err.message);
