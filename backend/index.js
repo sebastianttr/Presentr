@@ -1,32 +1,41 @@
-const http = require('http');
 const https = require('https');
-const fs = require('fs');
 var express = require('express');
 var cors = require('cors');
+const fs = require('fs');
 const WebSocket = require('ws');
 var events = require('events');
 const url = require('url');
 const querystring = require('querystring');
 
-
 var app = express();
 app.use("/", express.static('/root/websites/portfolio'));
 
 var globalEventEmitter = new events.EventEmitter();
+const wss1 = new WebSocket.Server({ noServer: true });
+const wss2 = new WebSocket.Server({ noServer: true });
 
 const server = https.createServer({
+    /*
+    cert: fs.readFileSync('ssl/certificate.crt'),
+    key: fs.readFileSync('ssl/privateKey.key')
+    */
     cert: fs.readFileSync('/root/server/certs/certificate.crt'),
     key: fs.readFileSync('/root/server/certs/privateKey.key')
 });
 
-const wss1 = new WebSocket.Server({ noServer: true });
-const wss2 = new WebSocket.Server({ noServer: true });
+var offers = [];
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({
     extended: true
 }));
+
+
+app.get("/getAllOffers", (req, res) => {
+    res.send("Geht");
+})
+
 
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -46,8 +55,7 @@ app.get('/', function(req, res) {
     res.sendFile("/root/websites/portfolio/index.html");
 });
 
-
-var offers = [];
+server.on('request', app)
 
 //add new Offer
 
@@ -91,24 +99,30 @@ wss2.on('connection', function connection(ws, req) {
     const ip = req.socket.remoteAddress;
     const port = req.socket.remotePort;
     let query = querystring.parse(url.parse(req.url).query);
-    if (query.id != "null") {
-        console.log("Client connected with IP " + ip);
+    try {
 
-        ws.on('message', message => {
-            message1 = message;
-            globalEventEmitter.emit("sendBackMaster" + String(query.id), message)
-        });
+        if (query.id != "null") {
+            console.log("Client connected with IP " + ip);
 
-        ws.on('close', message => {
-            console.log("Connection to client with IP: %s:%s lost.", ip, port);
-        });
-        var offer = offers.find(of => of.offerID == query.id);
+            ws.on('message', message => {
+                message1 = message;
+                globalEventEmitter.emit("sendBackMaster" + String(query.id), message)
+            });
 
-        ws.send(JSON.stringify({
-            offerID: offer.offerID,
-            offer: offer.offer
-        }));
-    }
+            ws.on('close', message => {
+                console.log("Connection to client with IP: %s:%s lost.", ip, port);
+            });
+
+            var offer = offers.find(of => of.offerID == query.id);
+
+            ws.send(JSON.stringify({
+                offerID: offer.offerID,
+                offer: offer.offer
+            }));
+        }
+
+
+    } catch (e) {}
 
 });
 
@@ -130,12 +144,8 @@ server.on('upgrade', function upgrade(request, socket, head) {
     }
 });
 
-/*
-app.get("/getAllOffers", (req, res) => {
-    res.send(offers);
-})
-*/
 
-app.listen(80); //HTTP Server
-https.createServer(server, app).listen(443);
-server.listen(8086); //WebSocket Server
+
+server.listen(443, function() {
+    console.log("Express WebAPI and WSS Server running on port 80!");
+}); //WebSocket Server
