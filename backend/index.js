@@ -1,4 +1,5 @@
 const https = require('https');
+var http = require('http');
 var express = require('express');
 var cors = require('cors');
 const fs = require('fs');
@@ -30,18 +31,6 @@ app.use(express.json());
 app.use(express.urlencoded({
     extended: true
 }));
-
-
-app.get("/getAllOffers", (req, res) => {
-    res.send("Geht");
-})
-
-
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept');
-    req.secure ? next() : res.redirect('https://' + req.headers.host + req.url)
-})
 
 app.get('/WebRTC_preview', function(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*')
@@ -146,6 +135,11 @@ server.on('upgrade', function upgrade(request, socket, head) {
 
 
 
+http.createServer(function(req, res) {
+    res.writeHead(301, { "Location": "https://" + req.headers['host'] + req.url });
+    res.end();
+}).listen(80);
+
 server.listen(443, function() {
-    console.log("Express WebAPI and WSS Server running on port 80!");
-}); //WebSocket Server
+    console.log("Express WebAPI and WSS Server running on port 443[HTTPS] and 80[HTTP]!");
+});
