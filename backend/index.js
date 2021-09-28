@@ -1,5 +1,7 @@
 const https = require('https');
 var http = require('http');
+var httpProxy = require('http-proxy');
+var proxy = httpProxy.createProxyServer({});
 var express = require('express');
 var cors = require('cors');
 const fs = require('fs');
@@ -9,20 +11,12 @@ const url = require('url');
 const querystring = require('querystring');
 
 var app = express();
-app.use("/", express.static('/root/websites/portfolio'));
 
 var globalEventEmitter = new events.EventEmitter();
 const wss1 = new WebSocket.Server({ noServer: true });
 const wss2 = new WebSocket.Server({ noServer: true });
 
-const server = https.createServer({
-    /*
-    cert: fs.readFileSync('ssl/certificate.crt'),
-    key: fs.readFileSync('ssl/privateKey.key')
-    */
-    cert: fs.readFileSync('/root/server/certs/certificate.crt'),
-    key: fs.readFileSync('/root/server/certs/privateKey.key')
-});
+const server = http.createServer();
 
 var offers = [];
 
@@ -32,19 +26,32 @@ app.use(express.urlencoded({
     extended: true
 }));
 
+/*
 app.get('/WebRTC_preview', function(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept');
     res.sendFile("/root/websites/webrtc/index.html");
 });
+*/
 
 app.get('/', function(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept');
-    res.sendFile("/root/websites/portfolio/index.html");
+    res.sendFile("/websites/webrtc/index.html");
 });
 
-server.on('request', app)
+
+app.get("/ping" , (req,res) => {
+    res.send("Ping ok");
+});
+
+/*
+app.get("/roomclimate", (req, res) => {
+    proxy.web(req, res, { target: 'https://wiredless.io:8081/' });
+})
+*/
+
+//server.on('request', app)
 
 //add new Offer
 
@@ -135,11 +142,8 @@ server.on('upgrade', function upgrade(request, socket, head) {
 
 
 
-http.createServer(function(req, res) {
-    res.writeHead(301, { "Location": "https://" + req.headers['host'] + req.url });
-    res.end();
-}).listen(80);
+app.listen(80, () => {
+    console.log("Server started and listening on port 80")
+})
 
-server.listen(443, function() {
-    console.log("Express WebAPI and WSS Server running on port 443[HTTPS] and 80[HTTP]!");
-});
+server.listen(8080);
